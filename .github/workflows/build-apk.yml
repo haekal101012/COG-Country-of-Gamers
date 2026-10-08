@@ -50,8 +50,6 @@ jobs:
         run: |
           mkdir -p extracted
 
-          echo "Mencari ZIP COG..."
-
           ZIP_FILE=$(find . -maxdepth 1 -type f -iname "*.zip" | head -n 1)
 
           if [ -z "$ZIP_FILE" ]; then
@@ -60,11 +58,46 @@ jobs:
             exit 1
           fi
 
-          echo "ZIP ditemukan:"
-          echo "$ZIP_FILE"
+          echo "ZIP ditemukan: $ZIP_FILE"
 
           unzip -q "$ZIP_FILE" -d extracted
 
-          echo "Mencari settings.gradle..."
+          echo "ZIP berhasil diekstrak."
 
-     
+      - name: Find Android Project
+        run: |
+          SETTINGS=$(find extracted -type f \( \
+            -name "settings.gradle" -o \
+            -name "settings.gradle.kts" \
+          \) | head -n 1)
+
+          if [ -z "$SETTINGS" ]; then
+            echo "ERROR: settings.gradle tidak ditemukan!"
+            echo "Isi ZIP:"
+            find extracted -maxdepth 6 -type f -print
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$SETTINGS")
+
+          echo "Project ditemukan:"
+          echo "$PROJECT_DIR"
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Build APK
+        run: |
+          echo "Mulai build COG..."
+          gradle -p "$PROJECT_DIR" assembleDebug --stacktrace
+
+      - name: Find APK
+        run: |
+          echo "Mencari APK..."
+          find extracted -type f -name "*.apk" -print
+
+      - name: Upload COG APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: COG-Floating-Crosshair-APK
+          path: "extracted/**/app/build/outputs/apk/debug/*.apk"
+          if-no-files-found: error
