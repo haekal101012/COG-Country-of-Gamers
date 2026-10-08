@@ -30,12 +30,16 @@ jobs:
         run: |
           export ANDROID_HOME=/usr/local/lib/android/sdk
           export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
-          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/35.0.0:$PATH"
 
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --version
+
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
 
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "platform-tools" \
@@ -46,66 +50,21 @@ jobs:
         run: |
           mkdir -p extracted
 
-          echo "Isi repository:"
-          ls -la
+          echo "Mencari ZIP COG..."
 
-          if [ -f "./cog" ]; then
-            echo "File cog ditemukan."
+          ZIP_FILE=$(find . -maxdepth 1 -type f -iname "*.zip" | head -n 1)
 
-            if unzip -t "./cog" >/dev/null 2>&1; then
-              echo "cog adalah ZIP. Mengekstrak..."
-              unzip -q "./cog" -d extracted
-            else
-              echo "cog bukan ZIP."
-            fi
-          fi
-
-          if [ -f "./cog.zip" ]; then
-            echo "cog.zip ditemukan. Mengekstrak..."
-            unzip -q "./cog.zip" -d extracted
-          fi
-
-          echo "Mencari settings.gradle..."
-          find . -type f \( \
-            -name "settings.gradle" -o \
-            -name "settings.gradle.kts" \
-          \) -print
-
-      - name: Find Android Project
-        run: |
-          SETTINGS=$(find . -type f \( \
-            -name "settings.gradle" -o \
-            -name "settings.gradle.kts" \
-          \) -not -path "./.git/*" | head -n 1)
-
-          if [ -z "$SETTINGS" ]; then
-            echo "ERROR: Project Android belum ditemukan."
-            echo ""
-            echo "File repository:"
-            find . -maxdepth 5 -type f -not -path "./.git/*" -print
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: ZIP COG tidak ditemukan!"
+            ls -la
             exit 1
           fi
 
-          PROJECT_DIR=$(dirname "$SETTINGS")
+          echo "ZIP ditemukan:"
+          echo "$ZIP_FILE"
 
-          echo "================================"
-          echo "PROJECT COG DITEMUKAN:"
-          echo "$PROJECT_DIR"
-          echo "================================"
+          unzip -q "$ZIP_FILE" -d extracted
 
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Mencari settings.gradle..."
 
-      - name: Build APK
-        run: |
-          gradle -p "$PROJECT_DIR" assembleDebug --stacktrace
-
-      - name: Find APK
-        run: |
-          find . -type f -name "*.apk" -print
-
-      - name: Upload COG APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: COG-Floating-Crosshair-APK
-          path: "**/app/build/outputs/apk/debug/*.apk"
-          if-no-files-found: error
+     
